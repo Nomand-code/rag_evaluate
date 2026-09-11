@@ -1,0 +1,18 @@
+# --- Web Framework & Server ---
+fastapi>=0.110.0          # Асинхронный веб-фреймворк. Основа нашего API.
+uvicorn[standard]>=0.29.0 # ASGI-сервер для запуска FastAPI. [standard] включает uvloop для ускорения.
+
+# --- Data Validation & Config ---
+pydantic>=2.6.0           # Строгая валидация данных и работа с JSON. Версия 2 в разы быстрее первой.
+pydantic-settings>=2.2.0  # Управление настройками (чтение из .env файлов в Pydantic-модели).
+
+# --- AI / LLM Integration ---
+#openai>=1.14.0            # Официальный SDK. Версия >1.14 нужна для поддержки Structured Outputs (JSON mode).
+google-genai
+# --- Environment ---
+python-dotenv>=1.0.1      # Загрузка переменных окружения из .env файла при старте.
+
+# --- Testing (Dev) ---
+pytest>=8.1.0             # Фреймворк для unit-тестов.
+pytest-asyncio>=0.23.0    # Плагин для pytest, чтобы мы могли тестировать асинхронный код (async/await).
+httpx>=0.27.0             # Асинхронный HTTP-клиент. Нужен для TestClient в FastAPI, так как стандартный requests блокирует event loop.
