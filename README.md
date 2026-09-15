@@ -128,7 +128,3 @@ The `n8n_workflows/` directory contains pre-built n8n workflows to integrate thi
 - **422 Unprocessable Entity**: Returned if input data fails Pydantic validation (e.g., empty context, or containing blocked placeholder phrases like "no context found").
 - **504 Gateway Timeout**: Returned if the Gemini API request exceeds the 30-second timeout.
 - **502 Bad Gateway**: Returned for general Google API errors.
-
-## 📄 License
-
-This project is provided as-is for internal evaluation and development purposes.
