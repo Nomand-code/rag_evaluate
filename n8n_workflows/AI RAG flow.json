@@ -1,0 +1,658 @@
+{
+  "name": "AI RAG flow",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f7079413-4471-47e2-b303-2085994baee6",
+      "name": "When chat message received",
+      "webhookId": "000f64bb-7de0-46e8-ba42-1510b2b53e4b"
+    },
+    {
+      "parameters": {
+        "options": {
+          "returnIntermediateSteps": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "f8870d5f-613e-4ca9-884f-ba0bd91923c1",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "liquid/lfm-2.5-2.6b:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        784
+      ],
+      "id": "29ba49ab-e98c-4ba1-81af-f01df5af7dc8",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "RDq4fjCI6eoPsE9k",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        192,
+        336
+      ],
+      "id": "c3c8b1af-1d02-4622-b98d-ac092428c3e7",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        624,
+        464
+      ],
+      "id": "63678bae-4596-45d2-acc1-94c4627a733c",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "brhBKWfG4FogsZk6",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "EeAdbAUUvXO0kYXJ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/EeAdbAUUvXO0kYXJ",
+          "cachedResultName": "ScoredRAG"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "answer": "={{ $json.output }}",
+            "question": "={{ $('When chat message received').item.json.chatInput }}",
+            "context": "={{ $json.context }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "question",
+              "displayName": "question",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "context",
+              "displayName": "context",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "answer",
+              "displayName": "answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1072,
+        0
+      ],
+      "id": "e287f158-730c-4509-8abf-02034fb908f3",
+      "name": "Call 'ScoredRAG'"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this tool to find financial metrics, budget data, inflation percentages, and economic numbers from the Fairy Tail kingdom, Magnolia city, and various magic guilds.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "fairy_tail_base",
+          "mode": "list",
+          "cachedResultName": "fairy_tail_base"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        448,
+        288
+      ],
+      "id": "f1c5f54f-1c89-4085-92e6-0395681caf44",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "EGnHpu3p9HIbmIZC",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst steps = item.intermediateSteps || [];\n\nconst pageContents = [];\n\n// Вспомогательная функция для глубокого поиска pageContent\nfunction extractPageContent(data) {\n  if (!data) return;\n\n  if (typeof data === 'string') {\n    // Пробуем распарсить строку, если внутри зашифрован JSON\n    try {\n      const parsed = JSON.parse(data);\n      extractPageContent(parsed);\n    } catch (e) {\n      // Игнорируем строки с ошибками воркфлоу\n      if (data.includes('pageContent')) {\n        const match = data.match(/\"pageContent\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"/);\n        if (match && match[1]) {\n          pageContents.push(JSON.parse(`\"${match[1]}\"`));\n        }\n      }\n    }\n    return;\n  }\n\n  if (Array.isArray(data)) {\n    data.forEach(extractPageContent);\n  } else if (typeof data === 'object') {\n    // Если объект содержит поле pageContent\n    if (data.pageContent) {\n      pageContents.push(data.pageContent);\n    }\n    // Рекурсивно проходим по всем ключам объекта\n    Object.keys(data).forEach(key => {\n      if (key !== 'metadata') { // Игнорируем метаданные (blob, lines, etc.)\n        extractPageContent(data[key]);\n      }\n    });\n  }\n}\n\n// Проходим по всем шагам агента\nsteps.forEach(step => extractPageContent(step.observation));\n\n// Объединяем найденный чистый текст\nlet cleanContext = [...new Set(pageContents)].join('\\n\\n---\\n\\n').trim();\n\n// Защита для min_length=10 на случай пустой выдачи\nif (cleanContext.length < 10) {\n  cleanContext = \"Контекст из векторной базы знаний Qdrant не найден для данного запроса.\";\n}\n\nreturn {\n  json: {\n    output: item.output || '',\n    context: cleanContext\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        0
+      ],
+      "id": "5cd10a80-5cf7-42ef-9bdc-98301cdeaeef",
+      "name": "Normalize data"
+    },
+    {
+      "parameters": {
+        "description": "Use this tool to save the retrieved context from Qdrant into workflow variables. Call this after using the Qdrant search tool.",
+        "jsCode": "// Этот tool вызывается после Qdrant и сохраняет контекст\nconst contexts = $input.all();\nlet cleanContext = \"\";\n\nfor (const item of contexts) {\n  if (item.json.pageContent) {\n    cleanContext += item.json.pageContent + \"\\n\\n\";\n  }\n}\n\n// Сохраняем в переменную workflow\n$workflow.setVariable('rag_context', cleanContext);\n\nreturn {\n  json: {\n    context_saved: true,\n    length: cleanContext.length\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        832,
+        240
+      ],
+      "id": "0b10cae9-83a7-4277-b2f6-46c50a552ab8",
+      "name": "Code Tool"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b0254a4c-65b4-4df5-86b7-df75092b8356",
+              "leftValue": "={{ $json.hasError }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1584,
+        0
+      ],
+      "id": "a03bcf17-bb66-4332-be13-348871e836ae",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Получаем все входящие элементы\nconst items = $input.all();\n\n// Проверяем, есть ли хотя бы в одном элементе поле \"error\"\nconst hasError = items.some(item => item.json && item.json.error !== undefined);\n\n// Получаем текст ошибки (если она есть)\nconst errorMessage = items.find(item => item.json?.error)?.json?.error?.message || null;\n\nreturn [{\n  json: {\n    hasError: hasError,\n    errorMessage: errorMessage\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        0
+      ],
+      "id": "08092757-2b4f-4573-b39e-5ea79b90f852",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ab60f269-b104-4dfc-9e7e-a04d82fd41e5",
+              "name": "answer",
+              "value": "=Внимание ответ без проверки сервис не доступен!\n{{ $('AI Agent').item.json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1936,
+        -112
+      ],
+      "id": "6832014a-34ef-4f62-b3f3-508d872644a7",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "56f8af8a-a426-4689-a9ec-ca82b8772071",
+              "leftValue": "={{ $('Call \\'ScoredRAG\\'').item.json.status }}",
+              "rightValue": "fail",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1856,
+        192
+      ],
+      "id": "546b9ec0-26b5-4f8e-9828-cb89dab9b0b5",
+      "name": "Check fail"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b7853fad-361a-453c-bad0-56ef9f01138a",
+              "name": "output",
+              "value": "={{ $('AI Agent').item.json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2272,
+        224
+      ],
+      "id": "de218863-a7d1-4c35-8bdb-f874256dc11b",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Берем текущий счетчик из входного объекта или 0\nconst currentRetry = ($json.retry_count || 0) + 1;\n\nreturn {\n  json: {\n    ...$json,\n    retry_count: currentRetry\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        16
+      ],
+      "id": "63fb854d-43c4-4558-831c-7f4df7a9c252",
+      "name": "Increment Retry"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "76ff2cf8-9a71-4fa7-a2c5-e480154bf320",
+              "leftValue": "={{ $json.retry_count }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2464,
+        16
+      ],
+      "id": "023a4bfd-516b-48db-b1ff-8f39dac46d6c",
+      "name": "Check Limit"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Вопрос пользователя:\n{{ $('When chat message received').item.json.chatInput }}\n\nКонтекст из базы Qdrant:\n{{ $('Normalize data').item.json.context }}\n\nТвой предыдущий (неудачный) ответ:\n{{ $('AI Agent').item.json.output }}\n\nПричина ошибки от сервиса оценки:\n- По достоверности: {{ $('Call \\'ScoredRAG\\'').item.json.faithfulness.reasoning }}\n- По релевантности: {{ $('Call \\'ScoredRAG\\'').item.json.answer_relevance.reasoning }}\n\nСгенерируй исправленный, точный ответ на вопрос пользователя, учитывая замечания выше и опираясь только на контекст."
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        2752,
+        32
+      ],
+      "id": "7d6d83b2-d600-4303-b1c3-6df18b88f104",
+      "name": "LLM Retry"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prep-output",
+              "name": "output",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-context",
+              "name": "context",
+              "value": "={{ $('Normalize data').item.json.context }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-retry",
+              "name": "retry_count",
+              "value": "={{ $('Increment Retry').item.json.retry_count }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3184,
+        288
+      ],
+      "id": "398dd0d0-8cda-4c6d-b04b-d171c1af4f45",
+      "name": "Prepare Retry Data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ab60f269-b104-4dfc-9e7e-a04d82fd41e5",
+              "name": "answer",
+              "value": "=\"К сожалению, не удалось сформировать 100% достоверный ответ после 2 попыток\n{{ $('AI Agent').item.json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2704,
+        -192
+      ],
+      "id": "97aa1dce-d6eb-4b06-bb54-ab3b6bebb2b4",
+      "name": "Edit Fields2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "LLM Retry",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Normalize data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize data": {
+      "main": [
+        [
+          {
+            "node": "Call 'ScoredRAG'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Tool": {
+      "ai_tool": [
+        []
+      ]
+    },
+    "Call 'ScoredRAG'": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check fail": {
+      "main": [
+        [
+          {
+            "node": "Increment Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Retry": {
+      "main": [
+        [
+          {
+            "node": "Check Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Limit": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Retry": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retry Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retry Data": {
+      "main": [
+        [
+          {
+            "node": "Call 'ScoredRAG'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "073cea6c-f657-4748-ac95-ed1e66a8f0a1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b9bb567573dfaf12bbe1abdabcbc82b811dc663f7c4e8cb66b6215d1c9f1ea6e"
+  },
+  "nodeGroups": [],
+  "id": "FBoKaxpKqV0i2HWU",
+  "tags": []
+}
